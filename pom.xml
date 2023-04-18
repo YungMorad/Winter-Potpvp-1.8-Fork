@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>net.frozenorb.potpvp</groupId>
+    <groupId>me.antartic.winter</groupId>
     <artifactId>potpvp-reprised</artifactId>
     <name>PotPvP Reprised</name>
     <version>1.1</version>
@@ -114,7 +114,7 @@
             <artifactId>carbon-server</artifactId>
             <version>1.8.8-R0.1-SNAPSHOT</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/libs/carbn.jar</systemPath>
+            <systemPath>${project.basedir}/libs/CarbonSpigot-v3.5.jar</systemPath>
         </dependency>
 
         <!--Packet Handler-->
@@ -162,6 +162,15 @@
             <scope>compile</scope>
         </dependency>
 
+       <dependency>
+           <groupId>xyz.refinedev</groupId>
+           <artifactId>carbon-sknockback-api</artifactId>
+           <version>1.0</version>
+           <type>jar</type>
+           <scope>system</scope>
+           <systemPath>${project.basedir}/libs/Carbon-API.jar</systemPath>
+       </dependency>
+
         <!-- Specific Version because its smooth -->
         <dependency>
             <groupId>net.citizensnpcs</groupId>
@@ -170,14 +179,6 @@
             <type>jar</type>
             <scope>system</scope>
             <systemPath>${project.basedir}/libs/Citizens-2.0.29-b2490.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>xyz.refinedev</groupId>
-            <artifactId>carbon-sknockback-api</artifactId>
-            <version>1.0</version>
-            <type>jar</type>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/libs/Carbon-Knockback_API.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>io.papermc.paper</groupId>

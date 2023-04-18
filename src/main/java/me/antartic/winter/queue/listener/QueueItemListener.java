@@ -1,0 +1,120 @@
+package me.antartic.winter.queue.listener;
+
+import com.google.common.collect.ImmutableList;
+
+import me.antartic.winter.PotPvPRP;
+import me.antartic.winter.kit.kittype.KitType;
+import me.antartic.winter.kit.kittype.menu.select.CustomSelectKitTypeMenu;
+import me.antartic.winter.match.MatchHandler;
+import me.antartic.winter.party.Party;
+import me.antartic.winter.queue.QueueHandler;
+import me.antartic.winter.queue.QueueItems;
+import me.antartic.winter.util.ItemListener;
+import me.antartic.winter.validation.PotPvPValidation;
+import net.md_5.bungee.api.ChatColor;
+
+import org.bukkit.entity.Player;
+import xyz.refinedev.command.util.CC;;
+
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import static net.md_5.bungee.api.ChatColor.BOLD;
+
+// This class followes a different organizational style from other item listeners
+// because we need seperate listeners for ranked/unranked, we have methods which
+// we call which generate a Consumer<Player> designed for either ranked/unranked,
+// based on the argument passed. Returning Consumers makes this code slightly
+// harder to follow, but saves us from a lot of duplication
+public final class QueueItemListener extends ItemListener {
+
+    private final Function<KitType, CustomSelectKitTypeMenu.CustomKitTypeMeta> selectionAdditionRanked = selectionMenuAddition(true);
+    private final Function<KitType, CustomSelectKitTypeMenu.CustomKitTypeMeta> selectionAdditionUnranked = selectionMenuAddition(false);
+    private final QueueHandler queueHandler;
+
+    public QueueItemListener(QueueHandler queueHandler) {
+        this.queueHandler = queueHandler;
+
+        addHandler(QueueItems.JOIN_SOLO_UNRANKED_QUEUE_ITEM, joinSoloConsumer(false));
+        addHandler(QueueItems.JOIN_SOLO_RANKED_QUEUE_ITEM, joinSoloConsumer(true));
+
+        addHandler(QueueItems.JOIN_PARTY_UNRANKED_QUEUE_ITEM, joinPartyConsumer(false));
+        addHandler(QueueItems.JOIN_PARTY_RANKED_QUEUE_ITEM, joinPartyConsumer(true));
+
+        addHandler(QueueItems.LEAVE_SOLO_UNRANKED_QUEUE_ITEM, p -> queueHandler.leaveQueue(p, false));
+        addHandler(QueueItems.LEAVE_SOLO_RANKED_QUEUE_ITEM, p -> queueHandler.leaveQueue(p, false));
+
+        Consumer<Player> leaveQueuePartyConsumer = player -> {
+            Party party = PotPvPRP.getInstance().getPartyHandler().getParty(player);
+
+            // don't message, players who aren't leader shouldn't even get this item
+            if (party != null && party.isLeader(player.getUniqueId())) {
+                queueHandler.leaveQueue(party, false);
+            }
+        };
+
+        addHandler(QueueItems.LEAVE_PARTY_UNRANKED_QUEUE_ITEM, leaveQueuePartyConsumer);
+        addHandler(QueueItems.LEAVE_PARTY_RANKED_QUEUE_ITEM, leaveQueuePartyConsumer);
+    }
+
+    private Consumer<Player> joinSoloConsumer(boolean ranked) {
+        return player -> {
+            if (PotPvPValidation.canJoinQueue(player)) {
+                new CustomSelectKitTypeMenu(kitType -> {
+                    queueHandler.joinQueue(player, kitType, ranked);
+                    player.closeInventory();
+                }, ranked ? selectionAdditionRanked : selectionAdditionUnranked, "Join " + (ranked ? "Ranked" : "Unranked") + " Queue...", ranked).openMenu(player);
+            }
+        };
+    }
+
+    private Consumer<Player> joinPartyConsumer(boolean ranked) {
+        return player -> {
+            Party party = PotPvPRP.getInstance().getPartyHandler().getParty(player);
+
+            // just fail silently, players who aren't a leader
+            // of a party shouldn't even have this item
+            if (party == null || !party.isLeader(player.getUniqueId())) {
+                return;
+            }
+
+            // try to check validation issues in advance
+            // (will be called again in QueueHandler#joinQueue)
+            if (PotPvPValidation.canJoinQueue(party)) {
+                new CustomSelectKitTypeMenu(kitType -> {
+                    queueHandler.joinQueue(party, kitType, ranked);
+                    player.closeInventory();
+                }, ranked ? selectionAdditionRanked : selectionAdditionUnranked, "Play " + (ranked ? "Ranked" : "Unranked"), ranked).openMenu(player);
+            }
+        };
+    }
+
+    private Function<KitType, CustomSelectKitTypeMenu.CustomKitTypeMeta> selectionMenuAddition(boolean ranked) {
+        return kitType -> {
+            MatchHandler matchHandler = PotPvPRP.getInstance().getMatchHandler();
+
+            int inFightsRanked = matchHandler.countPlayersPlayingMatches(m -> m.getKitType() == kitType && m.isRanked());
+            int inQueueRanked = queueHandler.countPlayersQueued(kitType, true);
+
+            int inFightsUnranked = matchHandler.countPlayersPlayingMatches(m -> m.getKitType() == kitType && !m.isRanked());
+            int inQueueUnranked = queueHandler.countPlayersQueued(kitType, false);
+
+            return new CustomSelectKitTypeMenu.CustomKitTypeMeta(
+                    // clamp value to >= 1 && <= 64
+                    Math.max(1, Math.min(64, ranked ? inQueueRanked + inFightsRanked : inQueueUnranked + inFightsUnranked)),
+                    ranked ? ImmutableList.of(
+                            " ",
+                            ChatColor.GRAY + "┃" + CC.WHITE + " Fighting: " + ChatColor.RED + inFightsRanked,
+                            ChatColor.GRAY + "┃" + CC.WHITE + " Queueing: " + ChatColor.RED + inQueueRanked
+                            ) :
+                            ImmutableList.of(
+                            " ",
+                            ChatColor.GRAY + "┃" + CC.WHITE + " Fighting: " + ChatColor.RED + inFightsUnranked,
+                            ChatColor.GRAY + "┃" + CC.WHITE + " Queueing: " + ChatColor.RED + inQueueUnranked
+                            )
+            );
+        };
+    }
+
+}
